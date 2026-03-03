@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Github, ExternalLink } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Github, ExternalLink, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getProjectById } from '../services/projects';
 import type { Database } from '../types/supabase';
 import { Skeleton } from '../components/Skeleton';
@@ -13,6 +13,54 @@ export const ProjectDetail: React.FC = () => {
     const [project, setProject] = useState<ProjectRow | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+
+    // Hàm tối ưu hóa URL Cloudinary
+    const getOptimizedCloudinaryUrl = (url?: string) => {
+        if (!url) return '';
+        if (url.includes('cloudinary.com') && !url.includes('/upload/f_auto,q_auto/')) {
+            return url.replace('/upload/', '/upload/f_auto,q_auto/');
+        }
+        return url;
+    };
+
+    // Derived state for formatted images
+    const projectImages = useMemo(() => {
+        if (!project?.images) return [];
+        return Object.entries(project.images)
+            .filter(([_, url]) => url && typeof url === 'string')
+            .map(([key, url]) => {
+                const formatLabel = (str: string) => str.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                return {
+                    key,
+                    label: formatLabel(key),
+                    url: getOptimizedCloudinaryUrl(url as string),
+                    originalUrl: url as string
+                };
+            });
+    }, [project]);
+
+    // Disable body scroll when modal is open
+    useEffect(() => {
+        if (selectedImageIndex !== null) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'auto';
+        }
+        return () => { document.body.style.overflow = 'auto'; };
+    }, [selectedImageIndex]);
+
+    const handlePrevImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (selectedImageIndex === null) return;
+        setSelectedImageIndex(selectedImageIndex === 0 ? projectImages.length - 1 : selectedImageIndex - 1);
+    }
+
+    const handleNextImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (selectedImageIndex === null) return;
+        setSelectedImageIndex(selectedImageIndex === projectImages.length - 1 ? 0 : selectedImageIndex + 1);
+    }
 
     useEffect(() => {
         async function fetchDetail() {
@@ -57,19 +105,6 @@ export const ProjectDetail: React.FC = () => {
         );
     }
 
-    // Hàm tối ưu hóa URL Cloudinary
-    const getOptimizedCloudinaryUrl = (url?: string) => {
-        if (!url) return '';
-        if (url.includes('cloudinary.com') && !url.includes('/upload/f_auto,q_auto/')) {
-            return url.replace('/upload/', '/upload/f_auto,q_auto/');
-        }
-        return url;
-    };
-
-    const homeImage = getOptimizedCloudinaryUrl(project.images?.home);
-    const productImage = getOptimizedCloudinaryUrl(project.images?.product);
-    const collectionImage = getOptimizedCloudinaryUrl(project.images?.collection);
-
     return (
         <motion.div
             initial={{ opacity: 0 }}
@@ -111,44 +146,111 @@ export const ProjectDetail: React.FC = () => {
 
                 {/* Gallery Images */}
                 <div className="space-y-12 pb-20">
-                    {homeImage && (
+                    {projectImages.map((img, index) => (
                         <motion.div
+                            key={img.key}
                             initial={{ opacity: 0, y: 30 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            className="rounded-2xl overflow-hidden shadow-2xl glass-dark"
+                            className="rounded-2xl overflow-hidden shadow-2xl glass-dark cursor-pointer group"
+                            onClick={() => setSelectedImageIndex(index)}
                         >
-                            <div className="bg-slate-800 py-3 px-6 text-white font-medium border-b border-white/10">Home Page</div>
-                            <img src={homeImage} alt={`${project.title} Home`} className="w-full h-auto object-cover" loading="lazy" />
+                            <div className="bg-slate-800 py-3 px-6 text-white font-medium border-b border-white/10 flex justify-between items-center">
+                                <span>{img.label} Page</span>
+                                <span className="opacity-0 group-hover:opacity-100 transition-opacity text-sm text-slate-400">Click to expand</span>
+                            </div>
+                            <img src={img.url} alt={`${project.title} ${img.label}`} className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-[1.02]" loading="lazy" />
                         </motion.div>
-                    )}
-
-                    {productImage && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            className="rounded-2xl overflow-hidden shadow-2xl glass-dark"
-                        >
-                            <div className="bg-slate-800 py-3 px-6 text-white font-medium border-b border-white/10">Product Page</div>
-                            <img src={productImage} alt={`${project.title} Product`} className="w-full h-auto object-cover" loading="lazy" />
-                        </motion.div>
-                    )}
-
-                    {collectionImage && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            className="rounded-2xl overflow-hidden shadow-2xl glass-dark"
-                        >
-                            <div className="bg-slate-800 py-3 px-6 text-white font-medium border-b border-white/10">Collection Page</div>
-                            <img src={collectionImage} alt={`${project.title} Collection`} className="w-full h-auto object-cover" loading="lazy" />
-                        </motion.div>
-                    )}
+                    ))}
                 </div>
 
             </div>
+
+            {/* Fullscreen Image Modal */}
+            <AnimatePresence>
+                {selectedImageIndex !== null && projectImages.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex flex-col bg-black/95 select-none backdrop-blur-sm"
+                        onClick={() => setSelectedImageIndex(null)}
+                    >
+                        {/* Top Bar */}
+                        <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent">
+                            <div className="text-white/80 font-medium px-4">
+                                {selectedImageIndex + 1} / {projectImages.length}
+                            </div>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setSelectedImageIndex(null); }}
+                                className="text-white/70 hover:text-white p-2 transition-colors rounded-full hover:bg-white/10"
+                            >
+                                <X size={28} />
+                            </button>
+                        </div>
+
+                        {/* Main Image Area */}
+                        <div className="flex-1 flex items-center justify-center relative px-4 md:px-20 overflow-hidden">
+                            {/* Navigation Buttons */}
+                            {projectImages.length > 1 && (
+                                <button
+                                    onClick={handlePrevImage}
+                                    className="absolute left-2 md:left-8 p-3 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-all z-10"
+                                >
+                                    <ChevronLeft size={40} strokeWidth={1.5} />
+                                </button>
+                            )}
+
+                            <motion.div
+                                key={selectedImageIndex}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                transition={{ duration: 0.2 }}
+                                className="w-full h-full flex items-center justify-center p-4 md:p-8"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <img
+                                    src={projectImages[selectedImageIndex].url}
+                                    alt={`Fullscreen ${projectImages[selectedImageIndex].label}`}
+                                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                                />
+                            </motion.div>
+
+                            {projectImages.length > 1 && (
+                                <button
+                                    onClick={handleNextImage}
+                                    className="absolute right-2 md:right-8 p-3 text-white/50 hover:text-white hover:bg-white/10 rounded-full transition-all z-10"
+                                >
+                                    <ChevronRight size={40} strokeWidth={1.5} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Thumbnails */}
+                        {projectImages.length > 1 && (
+                            <div
+                                className="bg-black/80 border-t border-white/10 flex items-center justify-start sm:justify-center gap-3 px-4 py-4 overflow-x-auto w-full no-scrollbar shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ WebkitOverflowScrolling: 'touch' }}
+                            >
+                                {projectImages.map((img, idx) => (
+                                    <button
+                                        key={img.key}
+                                        onClick={() => setSelectedImageIndex(idx)}
+                                        className={`relative shrink-0 rounded-md overflow-hidden transition-all duration-200 ${selectedImageIndex === idx
+                                                ? 'w-24 md:w-32 h-16 md:h-20 ring-2 ring-blue-500 opacity-100'
+                                                : 'w-20 md:w-28 h-14 md:h-16 opacity-50 hover:opacity-80'
+                                            }`}
+                                    >
+                                        <img src={img.url} alt={`Thumbnail ${img.label}`} className="w-full h-full object-cover" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 };
