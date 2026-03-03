@@ -23,7 +23,7 @@ export function useProjects(): UseProjectsResult {
                 setProjects(data);
                 setError(null);
             } catch (err: any) {
-                setError(err.message || 'Lỗi khi tải dự án');
+                setError(err.message || 'Error loading projects');
             } finally {
                 setLoading(false);
             }

@@ -8,7 +8,7 @@ export const Layout: React.FC = () => {
 
     const isActive = (path: string) => location.pathname === path;
 
-    // Thay thế '#Url_CV_Cua_Ban' bằng link Google Drive/PDF thực tế của bạn
+    // Replace '#Url_CV_Cua_Ban' with your actual Google Drive/PDF resume link
     const resumeUrl = '#Url_CV_Cua_Ban';
 
     const closeMenu = () => setIsMenuOpen(false);

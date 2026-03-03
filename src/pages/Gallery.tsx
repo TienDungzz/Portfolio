@@ -9,9 +9,35 @@ import { Skeleton } from '../components/Skeleton';
 export const Gallery: React.FC = () => {
     const { projects, loading, error } = useProjects();
     const [activeFilter, setActiveFilter] = useState<string>('All');
-    const [gridCols, setGridCols] = useState<number>(3); // Default to 3 columns
+    const [requestedCols, setRequestedCols] = useState<number>(3); // Default to 3 columns
+    const [actualCols, setActualCols] = useState<number>(3);
 
-    // Trích xuất tất cả các công nghệ duy nhất từ danh sách dự án
+    // Handle logic for actual displayed columns based on current breakpoint
+    React.useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            let currentDisplayCols = requestedCols;
+
+            if (width < 640) { // < sm
+                currentDisplayCols = 1;
+            } else if (width < 768) { // sm to < md
+                currentDisplayCols = Math.min(requestedCols, 2);
+            } else if (width < 1024) { // md to < lg
+                currentDisplayCols = Math.min(requestedCols, 3);
+            } else { // >= lg
+                currentDisplayCols = requestedCols;
+            }
+
+            setActualCols(currentDisplayCols);
+        };
+
+        // Recalculate initially and on screen resize
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [requestedCols]);
+
+    // Extract unique technologies from all projects
     const allTechs = useMemo(() => {
         const techs = new Set<string>();
         projects.forEach((p) => {
@@ -22,20 +48,21 @@ export const Gallery: React.FC = () => {
         return ['All', ...Array.from(techs).sort()];
     }, [projects]);
 
-    // Lọc dự án theo công nghệ đang chọn
+    // Filter projects based on active tech filter
     const filteredProjects = useMemo(() => {
         if (activeFilter === 'All') return projects;
         return projects.filter((p) => p.tech_stack?.includes(activeFilter));
     }, [projects, activeFilter]);
 
-    // Lớp CSS động dựa trên số cột được chọn
+    // Dynamic CSS classes for grid columns based on user selection and screen size
     const getGridClass = () => {
-        switch (gridCols) {
-            case 1: return "grid-cols-1 w-full"; // Xóa max-w-* để full width
-            case 2: return "grid-cols-1 md:grid-cols-2 w-full"; // Xóa max-w-*
-            case 4: return "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 w-full";
+        // Tailwind breakpoints: sm (640px), md (768px), lg (1024px)
+        switch (actualCols) {
+            case 1: return "grid-cols-1 w-full";
+            case 2: return "grid-cols-1 sm:grid-cols-2 w-full";
+            case 4: return "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 w-full";
             case 3:
-            default: return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 w-full";
+            default: return "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 w-full";
         }
     };
 
@@ -82,19 +109,19 @@ export const Gallery: React.FC = () => {
                         </div>
 
                         {/* View Controls */}
-                        <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                            <span className="text-sm font-medium text-slate-500 mr-2 hidden sm:block">View:</span>
+                        <div className="hidden sm:flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+                            <span className="text-sm font-medium text-slate-500 mr-2 hidden md:block">View:</span>
 
-                            <button onClick={() => setGridCols(1)} className={`p-2 rounded-lg transition-colors ${gridCols === 1 ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`} aria-label="List View">
+                            <button onClick={() => setRequestedCols(1)} className={`p-2 rounded-lg transition-colors ${actualCols === 1 ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`} aria-label="List View">
                                 <LayoutList size={20} />
                             </button>
-                            <button onClick={() => setGridCols(2)} className={`p-2 rounded-lg transition-colors hidden sm:block ${gridCols === 2 ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`} aria-label="2 Columns">
+                            <button onClick={() => setRequestedCols(2)} className={`p-2 rounded-lg transition-colors sm:block ${actualCols === 2 ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`} aria-label="2 Columns">
                                 <Grid2x2 size={20} />
                             </button>
-                            <button onClick={() => setGridCols(3)} className={`p-2 rounded-lg transition-colors hidden md:block ${gridCols === 3 ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`} aria-label="3 Columns">
+                            <button onClick={() => setRequestedCols(3)} className={`p-2 rounded-lg transition-colors hidden md:block ${actualCols === 3 ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`} aria-label="3 Columns">
                                 <Grid3x3 size={20} />
                             </button>
-                            <button onClick={() => setGridCols(4)} className={`p-2 rounded-lg transition-colors hidden lg:block ${gridCols === 4 ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`} aria-label="4 Columns">
+                            <button onClick={() => setRequestedCols(4)} className={`p-2 rounded-lg transition-colors hidden lg:block ${actualCols === 4 ? 'bg-blue-100 text-blue-600' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-50'}`} aria-label="4 Columns">
                                 <LayoutGrid size={20} />
                             </button>
                         </div>
@@ -122,7 +149,7 @@ export const Gallery: React.FC = () => {
                                     className="h-full"
                                 >
                                     <Link to={`/projects/${project.id}`} className="block h-full group">
-                                        <ProjectCard project={project} index={index} layout={gridCols === 1 ? 'list' : 'grid'} />
+                                        <ProjectCard project={project} index={index} layout={actualCols === 1 ? 'list' : 'grid'} />
                                     </Link>
                                 </motion.div>
                             ))

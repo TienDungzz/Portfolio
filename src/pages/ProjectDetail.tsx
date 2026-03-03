@@ -5,6 +5,7 @@ import { ArrowLeft, Github, ExternalLink, X, ChevronLeft, ChevronRight } from 'l
 import { getProjectById } from '../services/projects';
 import type { Database } from '../types/supabase';
 import { Skeleton } from '../components/Skeleton';
+import { ImageSlider } from '../components/ImageSlider';
 
 type ProjectRow = Database['public']['Tables']['projects']['Row'];
 
@@ -15,7 +16,7 @@ export const ProjectDetail: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
 
-    // Hàm tối ưu hóa URL Cloudinary
+    // Cloudinary URL optimization helper
     const getOptimizedCloudinaryUrl = (url?: string) => {
         if (!url) return '';
         if (url.includes('cloudinary.com') && !url.includes('/upload/f_auto,q_auto/')) {
@@ -27,18 +28,61 @@ export const ProjectDetail: React.FC = () => {
     // Derived state for formatted images
     const projectImages = useMemo(() => {
         if (!project?.images) return [];
-        return Object.entries(project.images)
-            .filter(([_, url]) => url && typeof url === 'string')
-            .map(([key, url]) => {
-                const formatLabel = (str: string) => str.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                return {
+
+        const images: { key: string, label: string, url: string, originalUrl: string, group: string }[] = [];
+        const formatLabel = (str: string) => str.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+
+        const entries = Object.entries(project.images as Record<string, any>);
+
+        // Sort keys with priority priorities: home -> collection -> product -> others
+        const sortOrder: Record<string, number> = { home_page: 1, collection_page: 2, product_page: 3 };
+        entries.sort((a, b) => {
+            const rankA = sortOrder[a[0]] || 99;
+            const rankB = sortOrder[b[0]] || 99;
+            if (rankA !== rankB) return rankA - rankB;
+            return a[0].localeCompare(b[0]);
+        });
+
+        entries.forEach(([key, value]) => {
+            if (!value) return;
+            const label = formatLabel(key);
+
+            if (typeof value === 'string') {
+                images.push({
                     key,
-                    label: formatLabel(key),
-                    url: getOptimizedCloudinaryUrl(url as string),
-                    originalUrl: url as string
-                };
-            });
+                    label,
+                    group: key,
+                    url: getOptimizedCloudinaryUrl(value),
+                    originalUrl: value
+                });
+            } else if (Array.isArray(value)) {
+                value.forEach((url: string, index: number) => {
+                    if (typeof url === 'string') {
+                        images.push({
+                            key: `${key}_${index}`,
+                            label,
+                            group: key,
+                            url: getOptimizedCloudinaryUrl(url),
+                            originalUrl: url
+                        });
+                    }
+                });
+            }
+        });
+
+        return images;
     }, [project]);
+
+    const groupedImages = useMemo(() => {
+        const groups: Record<string, { label: string, items: (typeof projectImages[0] & { globalIndex: number })[] }> = {};
+        projectImages.forEach((img, index) => {
+            if (!groups[img.group]) {
+                groups[img.group] = { label: img.label, items: [] };
+            }
+            groups[img.group].items.push({ ...img, globalIndex: index });
+        });
+        return Object.values(groups);
+    }, [projectImages]);
 
     // Disable body scroll when modal is open
     useEffect(() => {
@@ -111,59 +155,79 @@ export const ProjectDetail: React.FC = () => {
             animate={{ opacity: 1 }}
             className="bg-slate-50 min-h-screen py-10"
         >
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <Link to="/projects" className="inline-flex items-center gap-2 text-slate-500 hover:text-blue-600 transition-colors mb-10 font-medium">
                     <ArrowLeft size={20} /> Back to Projects
                 </Link>
 
-                {/* Header */}
-                <div className="mb-12">
-                    <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6">{project.title}</h1>
-                    <div className="flex flex-wrap gap-3 mb-8">
-                        {project.tech_stack?.map((tech, i) => (
-                            <span key={i} className="px-3 py-1 bg-slate-200 text-slate-700 rounded-full text-sm font-semibold">
-                                {tech}
-                            </span>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
+                    {/* Left Column: Header Info */}
+                    <div className="lg:col-span-5 h-fit lg:sticky lg:top-24">
+                        <div className="mb-12">
+                            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 leading-tight">{project.title}</h1>
+                            <div className="flex flex-wrap gap-3 mb-8">
+                                {project.tech_stack?.map((tech, i) => (
+                                    <span key={i} className="px-3 py-1 bg-slate-200 text-slate-700 rounded-full text-sm font-semibold">
+                                        {tech}
+                                    </span>
+                                ))}
+                            </div>
+                            <p className="text-lg text-slate-600 leading-relaxed mb-8">
+                                {project.description}
+                            </p>
+
+                            <div className="flex flex-wrap gap-4 mt-8">
+                                {(project.show_github && project.github_url) && (
+                                    <a href={project.github_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium">
+                                        <Github size={18} /> View Source
+                                    </a>
+                                )}
+                                {(project.show_demo && project.demo_url) && (
+                                    <a href={project.demo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-lg shadow-blue-500/30">
+                                        <ExternalLink size={18} /> Live Demo
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column: Gallery Images */}
+                    <div className="lg:col-span-7 space-y-12 pb-20">
+                        {groupedImages.map((group) => (
+                            <motion.div
+                                key={group.label}
+                                initial={{ opacity: 0, y: 30 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                className="rounded-2xl overflow-hidden shadow-2xl glass-dark"
+                            >
+                                <div className="bg-slate-800 py-3 px-6 text-white font-medium border-b border-white/10 flex justify-between items-center">
+                                    <span>{group.label}</span>
+                                    {group.items.length > 1 ? (
+                                        <span className="text-sm font-semibold text-blue-300 bg-blue-900/50 px-3 py-1 rounded-full border border-blue-500/30">
+                                            {group.items.length} images
+                                        </span>
+                                    ) : (
+                                        <span className="text-sm text-slate-400">Click to expand</span>
+                                    )}
+                                </div>
+
+                                {group.items.length === 1 ? (
+                                    <div
+                                        className="cursor-pointer group relative bg-slate-900 flex items-center justify-center min-h-[200px]"
+                                        style={{ maxHeight: '100vh' }}
+                                        onClick={() => setSelectedImageIndex(group.items[0].globalIndex)}
+                                    >
+
+                                        <img src={group.items[0].url} alt={`${project.title} ${group.label}`} className="w-full object-cover object-top group-hover:object-bottom transition-all duration-[8000ms] ease-linear" style={{ maxHeight: '100vh' }} loading="lazy" />
+                                    </div>
+                                ) : (
+                                    <ImageSlider group={group} projectTitle={project.title} onImageClick={(idx) => setSelectedImageIndex(idx)} />
+                                )}
+                            </motion.div>
                         ))}
                     </div>
-                    <p className="text-lg md:text-xl text-slate-600 leading-relaxed">
-                        {project.description}
-                    </p>
-
-                    <div className="flex gap-4 mt-8">
-                        {(project.show_github && project.github_url) && (
-                            <a href={project.github_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors font-medium">
-                                <Github size={20} /> View Source
-                            </a>
-                        )}
-                        {(project.show_demo && project.demo_url) && (
-                            <a href={project.demo_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium cursor-pointer shadow-lg shadow-blue-500/30">
-                                <ExternalLink size={20} /> Live Demo
-                            </a>
-                        )}
-                    </div>
                 </div>
-
-                {/* Gallery Images */}
-                <div className="space-y-12 pb-20">
-                    {projectImages.map((img, index) => (
-                        <motion.div
-                            key={img.key}
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            className="rounded-2xl overflow-hidden shadow-2xl glass-dark cursor-pointer group"
-                            onClick={() => setSelectedImageIndex(index)}
-                        >
-                            <div className="bg-slate-800 py-3 px-6 text-white font-medium border-b border-white/10 flex justify-between items-center">
-                                <span>{img.label} Page</span>
-                                <span className="opacity-0 group-hover:opacity-100 transition-opacity text-sm text-slate-400">Click to expand</span>
-                            </div>
-                            <img src={img.url} alt={`${project.title} ${img.label}`} className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-[1.02]" loading="lazy" />
-                        </motion.div>
-                    ))}
-                </div>
-
             </div>
 
             {/* Fullscreen Image Modal */}
@@ -239,8 +303,8 @@ export const ProjectDetail: React.FC = () => {
                                         key={img.key}
                                         onClick={() => setSelectedImageIndex(idx)}
                                         className={`relative shrink-0 rounded-md overflow-hidden transition-all duration-200 ${selectedImageIndex === idx
-                                                ? 'w-24 md:w-32 h-16 md:h-20 ring-2 ring-blue-500 opacity-100'
-                                                : 'w-20 md:w-28 h-14 md:h-16 opacity-50 hover:opacity-80'
+                                            ? 'w-24 md:w-32 h-16 md:h-20 ring-2 ring-blue-500 opacity-100'
+                                            : 'w-20 md:w-28 h-14 md:h-16 opacity-50 hover:opacity-80'
                                             }`}
                                     >
                                         <img src={img.url} alt={`Thumbnail ${img.label}`} className="w-full h-full object-cover" />
