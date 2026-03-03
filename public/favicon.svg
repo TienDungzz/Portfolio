@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="64" fill="#1A73E8"/>
+  
+  <text 
+    x="50%" 
+    y="45%" 
+    dominant-baseline="middle" 
+    text-anchor="middle" 
+    fill="white" 
+    font-family="Arial, sans-serif" 
+    font-weight="bold" 
+    font-size="220">
+    TD
+  </text>
+
+  <rect 
+    x="130" 
+    y="360" 
+    width="250" 
+    height="25" 
+    rx="12.5" 
+    fill="white"/>
+</svg>
