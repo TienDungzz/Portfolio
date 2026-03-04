@@ -71,12 +71,13 @@ export const Home: React.FC = () => {
                     </p>
                     <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
                         {/* Replace these with actual logos as needed */}
+                        <div className="text-xl font-bold font-mono">Shopify</div>
+                        <div className="text-xl font-bold font-mono">BigCommerce</div>
+                        <div className="text-xl font-bold font-mono">Liquid</div>
+                        <div className="text-xl font-bold font-mono">Handlebars</div>
+                        <div className="text-xl font-bold font-mono">Javascript</div>
                         <div className="text-xl font-bold font-mono">React</div>
-                        <div className="text-xl font-bold font-mono">TypeScript</div>
-                        <div className="text-xl font-bold font-mono">Tailwind CSS</div>
-                        <div className="text-xl font-bold font-mono">ThreeJS</div>
-                        <div className="text-xl font-bold font-mono">Supabase</div>
-                        <div className="text-xl font-bold font-mono">Framer Motion</div>
+                        <div className="text-xl font-bold font-mono">Laravel</div>
                     </div>
                 </div>
             </section>
@@ -166,7 +167,7 @@ export const Home: React.FC = () => {
 
                             {/* LinkedIn Link */}
                             <a
-                                href="https://linkedin.com/in/your-linkedin-username"
+                                href="https://www.linkedin.com/in/tran-tien-dung/"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center justify-center w-14 h-14 rounded-full bg-slate-800 hover:bg-blue-600 hover:-translate-y-1 transition-all duration-300 shadow-lg"
