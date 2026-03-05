@@ -37,7 +37,7 @@ export const Home: React.FC = () => {
                                 options={{
                                     strings: [
                                         'Software Developer',
-                                        'Open Source Contributor',
+                                        'Shopify & BigCommerce Specialist',
                                         'Freelancer'
                                     ],
                                     autoStart: true,
